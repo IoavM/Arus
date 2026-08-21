@@ -1,0 +1,283 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Arus ERP Baseline API",
+    "version": "1.0.0",
+    "description": "API REST contract for Arus ERP multi-tenant baseline (HU-001 through HU-010)."
+  },
+  "paths": {
+    "/api/v1/auth/register-company": {
+      "post": {
+        "summary": "HU-001: Register company (Tenant) and owner user (Admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["company_name", "tax_id", "owner_name", "email", "password"],
+                "properties": {
+                  "company_name": { "type": "string" },
+                  "tax_id": { "type": "string" },
+                  "owner_name": { "type": "string" },
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Company and owner created successfully" },
+          "400": { "description": "Duplicate tax_id or email / validation error" }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "HU-002: Login and receive JWT access token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Authenticated successfully, returns token" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "summary": "HU-003: List tenant users (Admin only)",
+        "responses": {
+          "200": { "description": "List of users" },
+          "403": { "description": "Forbidden for non-admin" }
+        }
+      },
+      "post": {
+        "summary": "HU-003: Create collaborator user (Admin only)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["full_name", "email", "password", "role_id"],
+                "properties": {
+                  "full_name": { "type": "string" },
+                  "email": { "type": "string" },
+                  "password": { "type": "string" },
+                  "role_id": { "type": "string", "enum": ["ADMIN", "SELLER"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User created" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/v1/users/{id}/status": {
+      "patch": {
+        "summary": "HU-003: Toggle user active/inactive status (Admin only)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Status updated" }
+        }
+      }
+    },
+    "/api/v1/products": {
+      "get": {
+        "summary": "HU-004 / HU-009: List & search catalog and inventory",
+        "parameters": [
+          { "name": "query", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Product list with stock" }
+        }
+      },
+      "post": {
+        "summary": "HU-004: Create product",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["sku", "name", "sale_price", "current_stock"],
+                "properties": {
+                  "sku": { "type": "string" },
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "sale_price": { "type": "number" },
+                  "current_stock": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Product created" }
+        }
+      }
+    },
+    "/api/v1/customers": {
+      "get": {
+        "summary": "HU-005: List & search customers",
+        "responses": {
+          "200": { "description": "Customer list" }
+        }
+      },
+      "post": {
+        "summary": "HU-005: Create customer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "tax_number": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "email": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Customer created" }
+        }
+      }
+    },
+    "/api/v1/sales": {
+      "get": {
+        "summary": "HU-007: List sales history",
+        "responses": {
+          "200": { "description": "Sales history" }
+        }
+      },
+      "post": {
+        "summary": "HU-006: Register sale with atomic stock deduction",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["customer_id", "items"],
+                "properties": {
+                  "customer_id": { "type": "string", "format": "uuid" },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["product_id", "quantity", "unit_price"],
+                      "properties": {
+                        "product_id": { "type": "string", "format": "uuid" },
+                        "quantity": { "type": "integer" },
+                        "unit_price": { "type": "number" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Sale created and stock deducted" },
+          "400": { "description": "Insufficient stock" }
+        }
+      }
+    },
+    "/api/v1/purchases": {
+      "post": {
+        "summary": "HU-008: Register purchase with atomic stock addition",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["items"],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["product_id", "quantity", "unit_cost"],
+                      "properties": {
+                        "product_id": { "type": "string", "format": "uuid" },
+                        "quantity": { "type": "integer" },
+                        "unit_cost": { "type": "number" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Purchase created and stock added" }
+        }
+      }
+    },
+    "/api/v1/dashboard/summary": {
+      "get": {
+        "summary": "HU-010: Business summary metrics (Admin only)",
+        "responses": {
+          "200": {
+            "description": "Executive metrics for tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_sales_amount": { "type": "number" },
+                    "total_sales_count": { "type": "integer" },
+                    "active_products_count": { "type": "integer" },
+                    "active_customers_count": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Forbidden for non-admin" }
+        }
+      }
+    }
+  }
+}
