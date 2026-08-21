@@ -28,7 +28,7 @@ apiClient.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('arus_token');
       localStorage.removeItem('arus_user');
-      if (window.location.pathname !== '/login' && window.location.pathname !== '/register-company') {
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/' && window.location.pathname !== '/register-company') {
         window.location.href = '/login';
       }
     }

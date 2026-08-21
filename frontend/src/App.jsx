@@ -30,6 +30,7 @@ const AppRoutes = () => {
   const { token } = useAuth();
   return (
     <Routes>
+      <Route path="/" element={!token ? <Login /> : <Navigate to="/products" replace />} />
       <Route path="/login" element={!token ? <Login /> : <Navigate to="/products" replace />} />
       <Route path="/register-company" element={!token ? <RegisterCompany /> : <Navigate to="/products" replace />} />
 
