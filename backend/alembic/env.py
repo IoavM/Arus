@@ -13,7 +13,7 @@ from alembic import context
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.config import settings
-from src.database import Base
+from src.database import Base, ASYNCPG_CONNECT_ARGS
 
 # Import all model modules so Base.metadata contains all tables
 import src.shared.models
@@ -86,6 +86,9 @@ async def run_async_migrations() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        # Mismos ajustes que el engine de la app: las migraciones tambien corren
+        # contra el pooler de Supabase (es lo que falla en el build de Render).
+        connect_args=ASYNCPG_CONNECT_ARGS,
     )
 
     async with connectable.connect() as connection:
