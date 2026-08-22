@@ -7,7 +7,7 @@ const Products = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [formData, setFormData] = useState({ sku: '', name: '', description: '', sale_price: '', current_stock: '' });
+  const [formData, setFormData] = useState({ sku: '', name: '', description: '', sale_price: '', current_stock: '', min_stock: '' });
   const [error, setError] = useState('');
 
   const fetchProducts = async () => {
@@ -33,7 +33,8 @@ const Products = () => {
         await apiClient.put(`/products/${editingProduct.id}`, {
           name: formData.name,
           description: formData.description,
-          sale_price: parseFloat(formData.sale_price)
+          sale_price: parseFloat(formData.sale_price),
+          min_stock: parseInt(formData.min_stock, 10) || 0
         });
       } else {
         await apiClient.post('/products', {
@@ -41,12 +42,13 @@ const Products = () => {
           name: formData.name,
           description: formData.description,
           sale_price: parseFloat(formData.sale_price),
-          current_stock: parseInt(formData.current_stock, 10) || 0
+          current_stock: parseInt(formData.current_stock, 10) || 0,
+          min_stock: parseInt(formData.min_stock, 10) || 0
         });
       }
       setShowModal(false);
       setEditingProduct(null);
-      setFormData({ sku: '', name: '', description: '', sale_price: '', current_stock: '' });
+      setFormData({ sku: '', name: '', description: '', sale_price: '', current_stock: '', min_stock: '' });
       fetchProducts();
     } catch (err) {
       setError(err.response?.data?.detail || 'Error al guardar producto');
@@ -60,7 +62,8 @@ const Products = () => {
       name: p.name,
       description: p.description || '',
       sale_price: p.sale_price,
-      current_stock: p.current_stock
+      current_stock: p.current_stock,
+      min_stock: p.min_stock ?? 0
     });
     setShowModal(true);
   };
@@ -82,7 +85,7 @@ const Products = () => {
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>📦 Gestión de Productos e Inventario</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Catálogo de mercancías y existencias en almacén (HU-004 & HU-009)</p>
         </div>
-        <button onClick={() => { setEditingProduct(null); setFormData({ sku: '', name: '', description: '', sale_price: '', current_stock: '' }); setShowModal(true); }} className="btn btn-primary">
+        <button onClick={() => { setEditingProduct(null); setFormData({ sku: '', name: '', description: '', sale_price: '', current_stock: '', min_stock: '' }); setShowModal(true); }} className="btn btn-primary">
           + Nuevo Producto
         </button>
       </div>
@@ -125,6 +128,11 @@ const Products = () => {
                       <span className={`badge ${p.current_stock > 10 ? 'badge-success' : p.current_stock > 0 ? 'badge-warning' : 'badge-danger'}`}>
                         {p.current_stock} unidades
                       </span>
+                      {p.current_stock < p.min_stock && (
+                        <span className="badge badge-warning" style={{ marginLeft: '0.5rem' }} title={`Stock mínimo definido: ${p.min_stock}`}>
+                          ⚠ Stock bajo
+                        </span>
+                      )}
                     </td>
                     <td>
                       <span className={`badge ${p.status === 'ACTIVE' ? 'badge-success' : 'badge-danger'}`}>
@@ -208,6 +216,19 @@ const Products = () => {
                   />
                 </div>
               )}
+              <div className="form-group">
+                <label className="form-label">Stock Mínimo</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="form-control"
+                  value={formData.min_stock}
+                  onChange={(e) => setFormData({ ...formData, min_stock: e.target.value })}
+                />
+                <small style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                  Umbral para marcar el producto como "Stock bajo". Usa 0 para no definir umbral.
+                </small>
+              </div>
               <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
                 <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary" style={{ flex: 1 }}>
                   Cancelar
