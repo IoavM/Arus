@@ -6,10 +6,28 @@ const SalesHistory = () => {
   const [loading, setLoading] = useState(true);
   const [selectedSale, setSelectedSale] = useState(null);
   const [error, setError] = useState('');
+  const [customers, setCustomers] = useState([]);
+  const [filters, setFilters] = useState({ customer_id: '', date_from: '', date_to: '' });
+  const [filtersApplied, setFiltersApplied] = useState(false);
 
-  const fetchSales = async () => {
+  const fetchCustomers = async () => {
     try {
-      const response = await apiClient.get('/sales');
+      const response = await apiClient.get('/customers');
+      setCustomers(response.data);
+    } catch (err) {
+      // La lista de clientes es solo para el filtro; un fallo aquí no debe bloquear el historial.
+    }
+  };
+
+  const fetchSales = async (activeFilters = {}) => {
+    setLoading(true);
+    try {
+      const params = {};
+      if (activeFilters.customer_id) params.customer_id = activeFilters.customer_id;
+      if (activeFilters.date_from) params.date_from = activeFilters.date_from;
+      if (activeFilters.date_to) params.date_to = activeFilters.date_to;
+
+      const response = await apiClient.get('/sales', { params });
       setSales(response.data);
     } catch (err) {
       setError('Error al cargar historial de ventas');
@@ -19,8 +37,22 @@ const SalesHistory = () => {
   };
 
   useEffect(() => {
+    fetchCustomers();
     fetchSales();
   }, []);
+
+  const handleApplyFilters = (e) => {
+    e.preventDefault();
+    const hasFilters = Boolean(filters.customer_id || filters.date_from || filters.date_to);
+    setFiltersApplied(hasFilters);
+    fetchSales(filters);
+  };
+
+  const handleClearFilters = () => {
+    setFilters({ customer_id: '', date_from: '', date_to: '' });
+    setFiltersApplied(false);
+    fetchSales();
+  };
 
   return (
     <div>
@@ -31,11 +63,51 @@ const SalesHistory = () => {
 
       {error && <div className="alert-error">{error}</div>}
 
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <form onSubmit={handleApplyFilters} style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end' }}>
+          <div className="form-group" style={{ marginBottom: 0, minWidth: '200px' }}>
+            <label className="form-label">Cliente</label>
+            <select
+              className="form-control"
+              value={filters.customer_id}
+              onChange={(e) => setFilters({ ...filters, customer_id: e.target.value })}
+            >
+              <option value="">Todos los clientes</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Desde</label>
+            <input
+              type="date"
+              className="form-control"
+              value={filters.date_from}
+              onChange={(e) => setFilters({ ...filters, date_from: e.target.value })}
+            />
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Hasta</label>
+            <input
+              type="date"
+              className="form-control"
+              value={filters.date_to}
+              onChange={(e) => setFilters({ ...filters, date_to: e.target.value })}
+            />
+          </div>
+          <button type="submit" className="btn btn-primary">Aplicar Filtros</button>
+          <button type="button" onClick={handleClearFilters} className="btn btn-secondary">Limpiar Filtros</button>
+        </form>
+      </div>
+
       <div className="card">
         {loading ? (
           <p style={{ color: 'var(--text-secondary)' }}>Cargando ventas...</p>
         ) : sales.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>No hay ventas registradas en la empresa.</p>
+          <p style={{ color: 'var(--text-muted)' }}>
+            {filtersApplied ? 'No hay ventas para el filtro aplicado.' : 'No hay ventas registradas en la empresa.'}
+          </p>
         ) : (
           <div className="table-container">
             <table className="table">
