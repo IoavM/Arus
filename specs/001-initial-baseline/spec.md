@@ -2,8 +2,9 @@
 
 **Feature Branch**: `001-initial-baseline`  
 **Created**: 2026-08-20  
-**Status**: Draft (Clarified & Ready for Plan)  
-**Input**: User description: "Especificación inicial del producto Arus ERP basada en las 10 Historias de Usuario iniciales (HU-001 a HU-010) refinada con las decisiones del Clarify."
+**Last Updated**: 2026-08-21  
+**Status**: Draft (Clarified with Cybersecurity, Quality & Automated Testing Requirements)  
+**Input**: User description: "Especificación inicial del producto Arus ERP basada en las 10 Historias de Usuario iniciales (HU-001 a HU-010) ampliada con requisitos de ciberseguridad, calidad y estrategia de pruebas automatizadas."
 
 ---
 
@@ -17,6 +18,10 @@
 * **Q4: ¿Cómo se maneja la eliminación de productos y clientes?** → **A**: Los productos y clientes con historial transaccional NO se eliminan físicamente; únicamente se inactivan (`estado: inactivo`) para ser ocultados en nuevas operaciones. El borrado físico solo se permite para registros sin ninguna dependencia transaccional.
 * **Q5: ¿Cuáles son los roles de usuario predefinidos e iniciales?** → **A**: El sistema implementará inicialmente dos roles: `Administrador` (acceso completo a la empresa, usuarios y resumen) y `Vendedor` (operaciones comerciales, registro de ventas, consulta de clientes/productos/inventario; sin acceso a gestión de usuarios ni resumen del negocio). El modelo sigue siendo extensible para futuros roles.
 * **Q6: ¿Cómo se define el criterio de éxito SC-005 para ser objetivamente verificable?** → **A**: Un usuario sin experiencia previa completa exitosamente el flujo básico secuencial de registrar un producto, registrar un cliente y realizar una venta durante una sesión de prueba guiada sin requerir asistencia técnica externa.
+
+### Session 2026-08-21
+
+* **Q7: ¿Qué alcance de Ciberseguridad, Calidad y Pruebas Automatizadas debe agregarse al Specify?** → **A**: Se especifican formalmente los requisitos de seguridad de datos, autenticación/autorización, aislamiento multi-tenant, manejo seguro de secretos, matriz de escenarios de prueba (casos exitosos y de error) para todas las 10 HUs y criterios de aceptación de calidad (QA Gate) sin alterar el alcance funcional original.
 
 ---
 
@@ -303,18 +308,111 @@ Las siguientes funcionalidades quedan **excluidas explícitamente** de la versi�
 
 ---
 
+## 23. Requisitos de Ciberseguridad, Calidad y Estrategia de Pruebas Automatizadas
+
+### 23.1 Alcance y Estrategia de Pruebas Automatizadas
+El proceso de validación y aseguramiento de calidad de Arus ERP DEBE contar con una suite de pruebas automatizadas estructurada en tres niveles:
+
+1. **Pruebas Unitarias (Backend & Frontend)**:
+   - Validación de lógica de negocio aislada (cálculo de subtotales y totales monetarios con precisión exacta, funciones de validación de modelos y esquemas DTO).
+   - Generación de hashes criptográficos de contraseñas (`bcrypt`) y creación/decodificación de tokens JWT.
+2. **Pruebas de Integración y Persistencia (Backend + Database)**:
+   - Verificación de la capa de persistencia asíncrona (operaciones CRUD en PostgreSQL).
+   - Pruebas atómicas de transacciones comerciales: descuento de stock en ventas, adición de stock en compras y registro inmutable en `inventory_movements`.
+   - Pruebas de control de concurrencia y bloqueo de filas (`SELECT ... FOR UPDATE`).
+   - Pruebas automatizadas de **Aislamiento Multi-Tenant**: verificación de que ejecuciones en contexto de `Tenant_A` no retornen jamás registros pertenecientes a `Tenant_B`.
+3. **Pruebas de Contrato y Rutas de API (Backend Endpoints)**:
+   - Verificación de contratos OpenAPI / JSON Schema en endpoints REST.
+   - Validación de respuestas ante tokens ausentes, caducados o alterados (HTTP 401 Unauthorized).
+   - Validación de reglas de autorización RBAC (HTTP 403 Forbidden para usuarios `SELLER` al intentar consumir `/users` o `/dashboard/summary`).
+
+---
+
+### 23.2 Matriz de Escenarios de Prueba (Casos Exitosos y Casos de Error)
+
+Las pruebas automatizadas DEBEN validar explícitamente tanto el comportamiento esperado (camino feliz) como el manejo seguro ante errores y casos límite para cada una de las 10 HUs:
+
+| ID Escenario | HU Relacionada | Tipo de Caso | Descripción del Escenario de Prueba | Resultado Esperado |
+| :--- | :--- | :--- | :--- | :--- |
+| **TC-001** | HU-001 | Exitoso | Registro de empresa con NIT y correo válidos no existentes. | Retorna HTTP 201, crea el `Tenant`, registra el usuario `Administrador` y genera token JWT inicial. |
+| **TC-002** | HU-001 | Error | Registro de empresa con NIT o correo electrónico ya existente. | Retorna HTTP 400 Bad Request indicando duplicidad sin crear registros parciales en base de datos. |
+| **TC-003** | HU-002 | Exitoso | Autenticación con correo y contraseña correctas. | Retorna HTTP 200 OK y token JWT firmado con claims válidos (`sub`, `tenant_id`, `role_id`). |
+| **TC-004** | HU-002 | Error | Intento de login con contraseña incorrecta o usuario inactivo. | Retorna HTTP 401 Unauthorized con mensaje genérico de credenciales inválidas. |
+| **TC-005** | HU-003 | Exitoso | Administrador crea colaborador con rol `SELLER` o `ADMIN`. | Retorna HTTP 201 y el usuario queda registrado bajo el `tenant_id` del Administrador autenticado. |
+| **TC-006** | HU-003 | Error / RBAC | Usuario con rol `SELLER` intenta consultar `GET /users` o crear usuario. | Retorna HTTP 403 Forbidden bloqueando la ejecución. |
+| **TC-007** | HU-004 | Exitoso | Registro de producto con SKU único, precio y stock mayor o igual a 0. | Retorna HTTP 201 y guarda el producto activo en el catálogo del tenant. |
+| **TC-008** | HU-004 | Límite / Soft-Delete | Inactivación de producto que posee historial transaccional de ventas/compras. | Retorna HTTP 200 marcando `status = INACTIVE`. El producto no se elimina de la base de datos. |
+| **TC-009** | HU-005 | Exitoso | Creación de cliente y consulta de cliente genérico "Consumidor Final". | El cliente por defecto está disponible para ventas sin requerir datos adicionales. |
+| **TC-010** | HU-008 | Exitoso | Registro de compra notificando lista de productos, cantidades y costo unitario. | Transacción atómica: retorna HTTP 201, incrementa el stock de cada producto y registra `movement_type = PURCHASE`. |
+| **TC-011** | HU-006 | Exitoso | Registro de venta atómica con productos con stock suficiente. | Transacción atómica: calcula sub-totales exactos, descuenta el stock, registra la venta inmutable y crea `inventory_movements`. |
+| **TC-012** | HU-006 | Error / Stock | Venta de producto solicitando cantidad mayor al stock disponible en almacén. | Retorna HTTP 400 Bad Request indicando stock insuficiente. Ningún producto descuenta existencias ni se crea la venta. |
+| **TC-013** | HU-006 | Concurrencia | Dos solicitudes de venta simultáneas sobre la última unidad de producto. | La primera solicitud adquiere el bloqueo pesimista y se confirma; la segunda se rechaza limpiamente por stock insuficiente. |
+| **TC-014** | HU-007 | Exitoso / Inmutabilidad | Consulta de historial de ventas y detalle de recibos confirmados. | Retorna la lista ordenada. Ningún endpoint de la API permite modificar o borrar ventas pasadas. |
+| **TC-015** | HU-009 | Exitoso | Consulta de existencias consolidadas por producto. | Muestra el `current_stock` derivado exactamente de la suma de compras menos ventas. |
+| **TC-016** | HU-010 | Exitoso | Administrador consulta resumen del negocio (`/dashboard/summary`). | Retorna la suma total vendida y conteos agregados filtrados estrictamente por el `tenant_id` autenticado. |
+| **TC-017** | Security | Isolation | Consulta de productos/ventas de Tenant A autenticado con token de Tenant B. | Tenant B recibe un array vacío o error 404; cero visibilidad de la información de Tenant A. |
+
+---
+
+### 23.3 Validaciones de Ciberseguridad e Información Sensible
+
+Las siguientes validaciones de seguridad DEBEN ser aplicadas y verificadas de manera automatizada en el sistema:
+
+* **SEC-001: Sanitización y Validación de Entradas**:
+  - Toda entrada de usuario (JSON Payloads, Query Parameters, Headers) DEBE validarse contra esquemas estrictos de tipo, longitud y rango (Pydantic / JSON Schema).
+  - Rechazar cadenas maliciosas de inyección SQL mediante la parametrización obligatoria de consultas ORM/SQL asíncronas.
+  - Escapar y desinfectar valores en respuestas frontend para prevenir Cross-Site Scripting (XSS).
+* **SEC-002: Almacenamiento Seguro de Credenciales**:
+  - Las contraseñas de usuario DEBEN ser procesadas con un hash criptográfico robusto (`bcrypt` con factor de trabajo adecuado) antes de ser guardadas en la base de datos.
+  - Prohibición absoluta de almacenar o transmitir contraseñas en texto plano.
+* **SEC-003: Autenticación Basada en Tokens JWT Seguros**:
+  - La autenticación DEBE valerse de tokens JWT firmados con clave secreta criptográfica (algoritmo HS256 o superior).
+  - Los tokens DEBEN incluir claims obligatorios de expiración (`exp`), identidad del usuario (`sub`), `tenant_id` y `role_id`.
+  - Todo token expirado, malformado o con firma alterada DEBE ser rechazado de inmediato con HTTP 401 Unauthorized.
+* **SEC-004: Autorización RBAC en Backend (Server-Side Enforcement)**:
+  - Las reglas de autorización DEBEN evaluarse exclusivamente en el backend (guardias de dependencia o decoradores de endpoint). La UI frontend solo se considera una capa de conveniencia visual.
+  - Endpoints restringidos (`/users` y `/dashboard/summary`) DEBEN retornar HTTP 403 Forbidden ante cualquier token con `role_id == 'SELLER'`.
+* **SEC-005: Aislamiento Cero-Fugas Multi-Tenant (Multi-Tenant Scope)**:
+  - Ninguna consulta a la base de datos que acceda a entidades asociadas a empresa (usuarios, productos, clientes, ventas, compras, inventario) DEBE ejecutarse sin filtrar explícitamente por `tenant_id == current_authenticated_tenant`.
+  - El `tenant_id` DEBE extraerse únicamente del token JWT verificado en el servidor, nunca desde parámetros de URL o payloads enviables por el cliente.
+* **SEC-006: Protección de Información Sensible y Sanitización de Errores**:
+  - Los mensajes de error devueltos por la API DEBEN ser informativos pero genéricos (ejemplo: "Credenciales inválidas" en lugar de "Usuario no encontrado" o "Contraseña errónea").
+  - En entornos de producción, las respuestas de error NO DEBEN exponer trazas de pila (stack traces), estructuras internas de base de datos ni firmas del framework.
+  - Las respuestas de consulta de usuario NUNCA DEBEN incluir el campo `password_hash`.
+* **SEC-007: Control de Concurrencia y Resiliencia**:
+  - El registro de ventas DEBE hacer uso de bloqueos pesimistas de fila (`SELECT ... FOR UPDATE`) sobre las entidades `Product` dentro de la transacción activa para prevenir condiciones de carrera en ventas simultáneas.
+
+---
+
+### 23.4 Criterios de Aceptación de Calidad y Correcto Funcionamiento (QA Gate)
+
+Para considerar el proceso de Arus ERP correctamente probado y listo para paso a producción, se DEBEN cumplir los siguientes criterios objetivamente verificables:
+
+* **QA-001 (Cobertura de Pruebas Automatizadas)**: La suite de pruebas automatizadas (unitarias + integración + API) DEBE cubrir como mínimo el **80% de las líneas de código** en los módulos de lógica de negocio, autenticación, ventas e inventario.
+* **QA-002 (Pruebas de Aislamiento Multi-Tenant Pasar 100%)**: El 100% de las pruebas automatizadas de aislamiento de datos entre empresas DEBEN pasar exitosamente en verde sin una sola falla.
+* **QA-003 (Pruebas de Atomicidad y Concurrencia Pasar 100%)**: Las pruebas de registro de venta, descuento de stock y rechazo por stock insuficiente DEBEN pasar al 100%.
+* **QA-004 (Verificación de Inmutabilidad)**: No debe existir ningún endpoint ni función en el sistema que permita la actualización o eliminación de registros en las tablas `sales` o `inventory_movements`.
+* **QA-005 (Formato de Respuestas de Error)**: El 100% de las respuestas ante fallos de validación o seguridad DEBEN ser JSON estructurados con código de estado HTTP adecuado (400, 401, 403, 404, 422).
+* **QA-006 (Definition of Done)**: Una Historia de Usuario se considera completamente probada únicamente cuando:
+  1. Los escenarios de aceptación funcionales ( Given / When / Then ) tienen pruebas automatizadas asociadas.
+  2. Los casos de error y límite aplicables cuentan con aserciones automatizadas de rechazo seguro.
+  3. No se detectan regresiones en las historias previamente integradas.
+
+---
+
 ## 19. Trazabilidad
 
-| Necesidad de Negocio | Historia de Usuario | Requisito Funcional | Criterio de Éxito |
-| :--- | :--- | :--- | :--- |
-| Registro de empresa y multi-tenant | HU-001 | FR-001, FR-017 | SC-001, SC-002 |
-| Autenticación y Seguridad | HU-002 | FR-002, FR-004 | SC-002 |
-| Gestión de Colaboradores y Roles | HU-003 | FR-003, FR-004, FR-005 | SC-002 |
-| Catálogo e Inventario | HU-004, HU-009 | FR-006, FR-014 | SC-005 |
-| Gestión de Clientes | HU-005 | FR-007, FR-008 | SC-005 |
-| Ventas e Inmutabilidad | HU-006, HU-007 | FR-009, FR-010, FR-011, FR-012 | SC-003, SC-004, SC-006 |
-| Abastecimiento | HU-008 | FR-013, FR-016 | SC-006 |
-| Resumen del Negocio | HU-010 | FR-015 | SC-005 |
+| Necesidad de Negocio | Historia de Usuario | Requisito Funcional | Requisito de Seguridad / Calidad | Criterio de Éxito |
+| :--- | :--- | :--- | :--- | :--- |
+| Registro de empresa y multi-tenant | HU-001 | FR-001, FR-017 | SEC-001, SEC-005, TC-001, TC-002 | SC-001, SC-002, QA-002 |
+| Autenticación y Seguridad | HU-002 | FR-002, FR-004 | SEC-002, SEC-003, SEC-006, TC-003, TC-004 | SC-002, QA-001 |
+| Gestión de Colaboradores y Roles | HU-003 | FR-003, FR-004, FR-005 | SEC-004, TC-005, TC-006 | SC-002, QA-001 |
+| Catálogo e Inventario | HU-004, HU-009 | FR-006, FR-014 | SEC-001, TC-007, TC-008, TC-015 | SC-005, QA-001 |
+| Gestión de Clientes | HU-005 | FR-007, FR-008 | SEC-001, TC-009 | SC-005, QA-001 |
+| Ventas, Concurrencia e Inmutabilidad | HU-006, HU-007 | FR-009, FR-010, FR-011, FR-012 | SEC-007, TC-011, TC-012, TC-013, TC-014 | SC-003, SC-004, SC-006, QA-003, QA-004 |
+| Abastecimiento / Compras | HU-008 | FR-013, FR-016 | SEC-007, TC-010 | SC-006, QA-003 |
+| Resumen del Negocio | HU-010 | FR-015 | SEC-004, SEC-005, TC-016 | SC-005, QA-001 |
+| Aislamiento Global & QA Gate | Cross | FR-016, FR-017 | SEC-005, QA-001 a QA-006, TC-017 | SC-002, SC-007, QA-001 a QA-006 |
 
 ---
 
@@ -326,6 +424,7 @@ Las siguientes funcionalidades quedan **excluidas explícitamente** de la versi�
 * **SC-004**: 100% de exactitud en cálculos de totales y subtotales monetarios.
 * **SC-005**: Un usuario sin experiencia previa completa exitosamente el flujo básico secuencial de registrar un producto, registrar un cliente y realizar una venta durante una sesión de prueba guiada sin requerir asistencia técnica externa.
 * **SC-006**: Trazabilidad e historial de auditoría inmutable en el 100% de las ventas y compras.
+* **SC-007**: 100% de las pruebas automatizadas de ciberseguridad, aislamiento multi-tenant, atómicas y de control de concurrencia aprobadas sin fallas.
 
 ---
 
@@ -341,4 +440,4 @@ Las siguientes funcionalidades quedan **excluidas explícitamente** de la versi�
 
 > [!IMPORTANT]
 > **Delimitación de Alcance de la Especificación**:
-> Esta especificación define exclusivamente **QUÉ** debe hacer el producto Arus ERP y **POR QUÉ** es necesario para el negocio. **NO define aún decisiones técnicas específicas de implementación** (tales como la elección del framework backend Python entre FastAPI/Django, el ORM, librerías UI concretas de React, estrategia específica de RLS en PostgreSQL, o proveedores de Hosting/CI-CD). Esas decisiones corresponden formalmente a la etapa **Plan**, respetando siempre los principios fijados en la [Constitution](file:///c:/Users/ioavm/OneDrive/Escritorio/IOAV/Arus/.specify/memory/constitution.md).
+> Esta especificación define exclusivamente **QUÉ** debe hacer el producto Arus ERP y **POR QUÉ** es necesario para el negocio, incluyendo formalmente los requisitos de **Ciberseguridad, Calidad y Estrategia de Pruebas Automatizadas (Sección 23)**. **NO define aún la implementación de código**. Las decisiones técnicas concretas de frameworks de testing (pytest, Vitest, Playwright) o arquitectura específica se derivan posteriormente respetando siempre la [Constitution](file:///c:/Users/ioavm/OneDrive/Escritorio/IOAV/Arus/.specify/memory/constitution.md).
