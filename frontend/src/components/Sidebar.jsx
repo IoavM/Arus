@@ -59,7 +59,13 @@ const Sidebar = () => {
               </NavLink>
             </li>
           )}
+          <li>
+            <NavLink to="/change-password" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              🔑 Cambiar Contraseña
+            </NavLink>
+          </li>
         </ul>
+
       </nav>
       <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
         <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>

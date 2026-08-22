@@ -11,6 +11,7 @@ import Customers from './pages/Customers';
 import Sales from './pages/Sales';
 import SalesHistory from './pages/SalesHistory';
 import Purchases from './pages/Purchases';
+import ChangePassword from './pages/ChangePassword';
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { user, token } = useAuth();
@@ -41,6 +42,7 @@ const AppRoutes = () => {
       <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
       <Route path="/sales-history" element={<ProtectedRoute><SalesHistory /></ProtectedRoute>} />
       <Route path="/purchases" element={<ProtectedRoute><Purchases /></ProtectedRoute>} />
+      <Route path="/change-password" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to={token ? "/products" : "/login"} replace />} />
     </Routes>
