@@ -1,6 +1,7 @@
 import uuid
 from typing import List, Optional
 from decimal import Decimal
+from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -17,17 +18,28 @@ router = APIRouter(prefix="/sales", tags=["Sales"])
 
 @router.get("", response_model=List[SaleResponse])
 async def list_sales(
+    customer_id: Optional[uuid.UUID] = Query(None),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """HU-007: Consult sales history for active tenant."""
+    """HU-007: Consult sales history for active tenant. HU-012: optional filters by customer and/or date range."""
     stmt = (
         select(Sale)
         .options(selectinload(Sale.items))
         .where(Sale.tenant_id == tenant_id)
-        .order_by(Sale.created_at.desc())
     )
+
+    if customer_id:
+        stmt = stmt.where(Sale.customer_id == customer_id)
+    if date_from:
+        stmt = stmt.where(Sale.created_at >= date_from)
+    if date_to:
+        stmt = stmt.where(Sale.created_at <= date_to + timedelta(days=1))
+
+    stmt = stmt.order_by(Sale.created_at.desc())
     result = await db.execute(stmt)
     sales = result.scalars().all()
 
