@@ -9,6 +9,7 @@ from src.modules.auth.router import router as auth_router
 from src.modules.users.router import router as users_router
 from src.modules.products.router import router as products_router
 from src.modules.customers.router import router as customers_router
+from src.modules.categories.router import router as categories_router
 from src.modules.purchases.router import router as purchases_router
 from src.modules.sales.router import router as sales_router
 from src.modules.dashboard.router import router as dashboard_router
@@ -37,6 +38,7 @@ app.include_router(auth_router, prefix=settings.API_V1_STR)
 app.include_router(users_router, prefix=settings.API_V1_STR)
 app.include_router(products_router, prefix=settings.API_V1_STR)
 app.include_router(customers_router, prefix=settings.API_V1_STR)
+app.include_router(categories_router, prefix=settings.API_V1_STR)
 app.include_router(purchases_router, prefix=settings.API_V1_STR)
 app.include_router(sales_router, prefix=settings.API_V1_STR)
 app.include_router(dashboard_router, prefix=settings.API_V1_STR)

@@ -16,6 +16,7 @@ class Product(Base):
     current_stock = Column(Integer, nullable=False, default=0)
     min_stock = Column(Integer, nullable=False, default=0)  # HU-011: umbral para indicador "Stock bajo"
     status = Column(String(20), nullable=False, default="ACTIVE")  # 'ACTIVE', 'INACTIVE'
+    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
     __table_args__ = (

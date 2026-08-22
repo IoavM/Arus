@@ -7,8 +7,10 @@ const Products = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [formData, setFormData] = useState({ sku: '', name: '', description: '', sale_price: '', current_stock: '', min_stock: '' });
+  const [formData, setFormData] = useState({ sku: '', name: '', description: '', sale_price: '', current_stock: '', min_stock: '', category_id: '' });
   const [error, setError] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [newCategory, setNewCategory] = useState('');
 
   const fetchProducts = async () => {
     try {
@@ -21,9 +23,35 @@ const Products = () => {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const response = await apiClient.get('/categories');
+      setCategories(response.data);
+    } catch (err) {
+      setError('Error al cargar las categorías');
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
   }, [query]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const handleCreateCategory = async () => {
+    if (!newCategory.trim()) return;
+    setError('');
+    try {
+      const response = await apiClient.post('/categories', { name: newCategory.trim() });
+      setCategories([...categories, response.data]);
+      setFormData({ ...formData, category_id: response.data.id });
+      setNewCategory('');
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Error al crear categoría');
+    }
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -34,7 +62,8 @@ const Products = () => {
           name: formData.name,
           description: formData.description,
           sale_price: parseFloat(formData.sale_price),
-          min_stock: parseInt(formData.min_stock, 10) || 0
+          min_stock: parseInt(formData.min_stock, 10) || 0,
+          category_id: formData.category_id || null
         });
       } else {
         await apiClient.post('/products', {
@@ -43,12 +72,13 @@ const Products = () => {
           description: formData.description,
           sale_price: parseFloat(formData.sale_price),
           current_stock: parseInt(formData.current_stock, 10) || 0,
-          min_stock: parseInt(formData.min_stock, 10) || 0
+          min_stock: parseInt(formData.min_stock, 10) || 0,
+          category_id: formData.category_id || null
         });
       }
       setShowModal(false);
       setEditingProduct(null);
-      setFormData({ sku: '', name: '', description: '', sale_price: '', current_stock: '', min_stock: '' });
+      setFormData({ sku: '', name: '', description: '', sale_price: '', current_stock: '', min_stock: '', category_id: '' });
       fetchProducts();
     } catch (err) {
       setError(err.response?.data?.detail || 'Error al guardar producto');
@@ -63,7 +93,8 @@ const Products = () => {
       description: p.description || '',
       sale_price: p.sale_price,
       current_stock: p.current_stock,
-      min_stock: p.min_stock ?? 0
+      min_stock: p.min_stock ?? 0,
+      category_id: p.category_id || ''
     });
     setShowModal(true);
   };
@@ -85,7 +116,7 @@ const Products = () => {
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>📦 Gestión de Productos e Inventario</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Catálogo de mercancías y existencias en almacén (HU-004 & HU-009)</p>
         </div>
-        <button onClick={() => { setEditingProduct(null); setFormData({ sku: '', name: '', description: '', sale_price: '', current_stock: '', min_stock: '' }); setShowModal(true); }} className="btn btn-primary">
+        <button onClick={() => { setEditingProduct(null); setFormData({ sku: '', name: '', description: '', sale_price: '', current_stock: '', min_stock: '', category_id: '' }); setShowModal(true); }} className="btn btn-primary">
           + Nuevo Producto
         </button>
       </div>
@@ -112,6 +143,7 @@ const Products = () => {
                 <tr>
                   <th>Código / SKU</th>
                   <th>Nombre del Producto</th>
+                  <th>Categoría</th>
                   <th>Precio Venta</th>
                   <th>Stock Disponible</th>
                   <th>Estado</th>
@@ -123,6 +155,11 @@ const Products = () => {
                   <tr key={p.id}>
                     <td><code>{p.sku}</code></td>
                     <td><strong>{p.name}</strong></td>
+                    <td>
+                      <span className="badge" style={{ backgroundColor: 'var(--bg-surface-hover)', color: 'var(--text-secondary)' }}>
+                        {categories.find((c) => c.id === p.category_id)?.name || 'Sin categoría'}
+                      </span>
+                    </td>
                     <td>${parseFloat(p.sale_price).toFixed(2)}</td>
                     <td>
                       <span className={`badge ${p.current_stock > 10 ? 'badge-success' : p.current_stock > 0 ? 'badge-warning' : 'badge-danger'}`}>
@@ -190,6 +227,32 @@ const Products = () => {
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Categoría (Opcional)</label>
+                <select
+                  className="form-control"
+                  value={formData.category_id}
+                  onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                >
+                  <option value="">Sin categoría</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Nueva categoría..."
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(); } }}
+                  />
+                  <button type="button" onClick={handleCreateCategory} className="btn btn-secondary" style={{ whiteSpace: 'nowrap' }}>
+                    + Crear
+                  </button>
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label">Precio de Venta ($)</label>

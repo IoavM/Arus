@@ -21,6 +21,7 @@ import src.modules.auth.models
 import src.modules.users.models
 import src.modules.products.models
 import src.modules.customers.models
+import src.modules.categories.models
 import src.modules.purchases.models
 import src.modules.sales.models
 

@@ -8,6 +8,7 @@ from src.database import get_db
 from src.shared.dependencies import get_current_tenant_id, get_current_user
 from src.modules.users.models import User
 from src.modules.products.models import Product
+from src.modules.categories.models import Category
 from src.modules.products.schemas import (
     ProductCreateRequest,
     ProductUpdateRequest,
@@ -58,6 +59,12 @@ async def create_product(
     if existing.scalars().first():
         raise HTTPException(status_code=400, detail="Ya existe un producto registrado con este código / SKU")
 
+    # HU-013: verify category exists in tenant
+    if payload.category_id:
+        category = await db.get(Category, payload.category_id)
+        if not category or category.tenant_id != tenant_id:
+            raise HTTPException(status_code=400, detail="Categoría no válida para esta empresa")
+
     product = Product(
         tenant_id=tenant_id,
         sku=payload.sku,
@@ -66,7 +73,8 @@ async def create_product(
         sale_price=payload.sale_price,
         current_stock=payload.current_stock,
         min_stock=payload.min_stock,
-        status="ACTIVE"
+        status="ACTIVE",
+        category_id=payload.category_id
     )
     db.add(product)
     await db.commit()
@@ -89,10 +97,17 @@ async def update_product(
     if not product:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
 
+    # HU-013: verify category exists in tenant
+    if payload.category_id:
+        category = await db.get(Category, payload.category_id)
+        if not category or category.tenant_id != tenant_id:
+            raise HTTPException(status_code=400, detail="Categoría no válida para esta empresa")
+
     product.name = payload.name
     product.description = payload.description
     product.sale_price = payload.sale_price
     product.min_stock = payload.min_stock
+    product.category_id = payload.category_id
     await db.commit()
     await db.refresh(product)
     return product
