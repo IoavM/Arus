@@ -6,9 +6,11 @@ from src.security import get_password_hash, verify_password, create_access_token
 from src.modules.auth.models import Tenant
 from src.modules.users.models import User, Role
 from src.modules.customers.models import Customer
-from src.modules.auth.schemas import RegisterCompanyRequest, LoginRequest, TokenResponse
+from src.modules.auth.schemas import RegisterCompanyRequest, LoginRequest, TokenResponse, ChangePasswordRequest
+from src.shared.dependencies import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
 
 @router.post("/register-company", status_code=status.HTTP_201_CREATED)
 async def register_company(payload: RegisterCompanyRequest, db: AsyncSession = Depends(get_db)):
@@ -124,3 +126,21 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
             "company_name": tenant.name if tenant else ""
         }
     }
+
+@router.post("/change-password")
+async def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """HU-014: Change current user's password."""
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Contraseña actual incorrecta"
+        )
+
+    current_user.password_hash = get_password_hash(payload.new_password)
+    await db.commit()
+    return {"message": "Contraseña actualizada correctamente"}
+
