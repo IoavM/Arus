@@ -15,6 +15,7 @@ class Product(Base):
     sale_price = Column(Numeric(12, 2), nullable=False)
     current_stock = Column(Integer, nullable=False, default=0)
     status = Column(String(20), nullable=False, default="ACTIVE")  # 'ACTIVE', 'INACTIVE'
+    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
     __table_args__ = (

@@ -9,11 +9,13 @@ class ProductCreateRequest(BaseModel):
     description: Optional[str] = None
     sale_price: Decimal = Field(..., ge=0)
     current_stock: int = Field(..., ge=0)
+    category_id: Optional[uuid.UUID] = None
 
 class ProductUpdateRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=200)
     description: Optional[str] = None
     sale_price: Decimal = Field(..., ge=0)
+    category_id: Optional[uuid.UUID] = None
 
 class ProductStatusRequest(BaseModel):
     status: str = Field(..., pattern="^(ACTIVE|INACTIVE)$")
@@ -27,6 +29,7 @@ class ProductResponse(BaseModel):
     sale_price: Decimal
     current_stock: int
     status: str
+    category_id: Optional[uuid.UUID] = None
 
     class Config:
         from_attributes = True
