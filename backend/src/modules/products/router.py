@@ -65,6 +65,7 @@ async def create_product(
         description=payload.description,
         sale_price=payload.sale_price,
         current_stock=payload.current_stock,
+        min_stock=payload.min_stock,
         status="ACTIVE"
     )
     db.add(product)
@@ -91,6 +92,7 @@ async def update_product(
     product.name = payload.name
     product.description = payload.description
     product.sale_price = payload.sale_price
+    product.min_stock = payload.min_stock
     await db.commit()
     await db.refresh(product)
     return product
